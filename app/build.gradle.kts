@@ -58,6 +58,9 @@ dependencies {
     // Kakao SDK
     implementation("com.kakao.sdk:v2-user:2.20.1")
 
+    // Google Play In-App Review (네이티브 별점 리뷰 프롬프트)
+    implementation("com.google.android.play:review-ktx:2.0.2")
+
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)

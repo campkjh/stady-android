@@ -8,10 +8,14 @@ import android.util.Log
 import java.security.MessageDigest
 import android.webkit.CookieManager
 import android.webkit.JavascriptInterface
+import android.webkit.ValueCallback
+import android.webkit.WebChromeClient
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import android.widget.Toast
 import androidx.activity.ComponentActivity
+import androidx.activity.result.contract.ActivityResultContracts
+import com.google.android.play.core.review.ReviewManagerFactory
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.appcompat.app.AppCompatDelegate
@@ -65,10 +69,61 @@ class MainActivity : ComponentActivity() {
                 Toast.makeText(this@MainActivity, message, Toast.LENGTH_SHORT).show()
             }
         }
+
+        // 웹(appReview.ts)에서 window.Android.requestReview() 호출 시
+        // Play 인앱 리뷰(별점) 프롬프트를 띄운다.
+        @JavascriptInterface
+        fun requestReview() {
+            runOnUiThread {
+                this@MainActivity.requestInAppReview()
+            }
+        }
     }
 
     private var webViewInstance: WebView? = null
     private var showLoginDialog by mutableStateOf(false)
+
+    // WebView <input type="file"> 처리용 콜백 + 파일 선택 런처.
+    private var filePathCallback: ValueCallback<Array<Uri>>? = null
+    private val fileChooserLauncher =
+        registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+            val callback = filePathCallback
+            filePathCallback = null
+            callback?.onReceiveValue(
+                WebChromeClient.FileChooserParams.parseResult(result.resultCode, result.data)
+            )
+        }
+
+    // WebChromeClient.onShowFileChooser 에서 호출. 시스템 파일/사진 선택창을 띄운다.
+    fun openFileChooser(callback: ValueCallback<Array<Uri>>, params: WebChromeClient.FileChooserParams) {
+        // 이전 콜백이 남아있으면 취소 처리.
+        filePathCallback?.onReceiveValue(null)
+        filePathCallback = callback
+        try {
+            fileChooserLauncher.launch(params.createIntent())
+        } catch (e: Exception) {
+            Log.e("StadyFileChooser", "파일 선택창 열기 실패", e)
+            filePathCallback = null
+            callback.onReceiveValue(null)
+            Toast.makeText(this, "파일을 열 수 없습니다.", Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    // Play 인앱 리뷰 플로우 실행.
+    private fun requestInAppReview() {
+        try {
+            val manager = ReviewManagerFactory.create(this)
+            manager.requestReviewFlow().addOnCompleteListener { task ->
+                if (task.isSuccessful) {
+                    manager.launchReviewFlow(this, task.result)
+                } else {
+                    Log.w("StadyReview", "리뷰 플로우 요청 실패", task.exception)
+                }
+            }
+        } catch (e: Exception) {
+            Log.e("StadyReview", "인앱 리뷰 실행 실패", e)
+        }
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         // 라이트 모드 강제 설정
@@ -334,6 +389,26 @@ fun WebViewWithLoading(
                     }
                     settings.javaScriptEnabled = true
                     settings.domStorageEnabled = true
+
+                    // 갤럭시탭 등 태블릿에서 반응형(50/50 분할) 레이아웃이 device-width
+                    // 기준으로 렌더되도록 뷰포트 설정.
+                    settings.useWideViewPort = true
+                    settings.loadWithOverviewMode = true
+                    settings.allowFileAccess = true
+                    settings.allowContentAccess = true
+
+                    // <input type="file"> 지원: 시스템 파일/사진 선택창을 연다.
+                    // (이게 없으면 커뮤니티 사진 첨부 시 선택창이 아예 안 열린다.)
+                    webChromeClient = object : WebChromeClient() {
+                        override fun onShowFileChooser(
+                            webView: WebView?,
+                            filePathCallback: ValueCallback<Array<Uri>>,
+                            fileChooserParams: FileChooserParams
+                        ): Boolean {
+                            activity.openFileChooser(filePathCallback, fileChooserParams)
+                            return true
+                        }
+                    }
 
                     // 써드파티 쿠키 허용 (이 WebView에 대해)
                     CookieManager.getInstance().setAcceptThirdPartyCookies(this, true)
