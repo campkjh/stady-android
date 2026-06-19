@@ -432,6 +432,12 @@ fun WebViewWithLoading(
                     // JavaScript Interface 등록
                     addJavascriptInterface(activity.WebAppInterface(), "Android")
 
+                    // 앱 실행 시 WebView 캐시를 비운다. (iOS WebView와 동일)
+                    // 안 그러면 안드로이드 WebView가 앱을 처음 켰던 시점의 옛 번들을
+                    // 계속 써서, 웹(Vercel) 배포가 앱에 바로 반영되지 않는다(반응형/기능
+                    // 변경이 안 보이는 원인). 매 실행마다 비워 최신 배포를 받게 한다.
+                    clearCache(true)
+
                     loadUrl("https://stady.kr")
                 }.also { webView = it }
             },
