@@ -1,5 +1,6 @@
 package kr.stady
 
+import android.app.Activity
 import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Bundle
@@ -89,9 +90,24 @@ class MainActivity : ComponentActivity() {
         registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
             val callback = filePathCallback
             filePathCallback = null
-            callback?.onReceiveValue(
-                WebChromeClient.FileChooserParams.parseResult(result.resultCode, result.data)
-            )
+            // WebChromeClient.FileChooserParams.parseResult() returns null for the
+            // Android photo picker's ClipData result on some devices (e.g. Galaxy),
+            // so the picked image never reached the WebView's <input type=file> and
+            // upload silently did nothing. Extract the URIs manually — ClipData for
+            // multi-select, getData() for single — and only fall back to parseResult.
+            val data = result.data
+            val uris: Array<Uri>? = if (result.resultCode == Activity.RESULT_OK && data != null) {
+                val clip = data.clipData
+                when {
+                    clip != null && clip.itemCount > 0 ->
+                        Array(clip.itemCount) { clip.getItemAt(it).uri }
+                    data.data != null -> arrayOf(data.data!!)
+                    else -> WebChromeClient.FileChooserParams.parseResult(result.resultCode, data)
+                }
+            } else {
+                null
+            }
+            callback?.onReceiveValue(uris)
         }
 
     // WebChromeClient.onShowFileChooser 에서 호출. 시스템 파일/사진 선택창을 띄운다.
