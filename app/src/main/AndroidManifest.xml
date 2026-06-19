@@ -36,7 +36,8 @@
             android:exported="false"
             android:label="@string/app_name"
             android:theme="@style/Theme.StadyApp"
-            android:launchMode="singleTask">
+            android:launchMode="singleTask"
+            android:configChanges="orientation|screenSize|keyboardHidden|smallestScreenSize|screenLayout|uiMode">
 
             <!-- 카카오 로그인 리다이렉트 -->
             <intent-filter>
