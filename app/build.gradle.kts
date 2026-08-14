@@ -12,8 +12,8 @@ android {
         applicationId = "kr.stady"
         minSdk = 24
         targetSdk = 36
-        versionCode = 4
-        versionName = "1.0.3"
+        versionCode = 6
+        versionName = "1.0.6"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
@@ -36,6 +36,7 @@ android {
     }
     buildFeatures {
         compose = true
+        buildConfig = true // BuildConfig.DEBUG 로 로컬 개발서버 URL 분기
     }
 }
 
@@ -60,6 +61,9 @@ dependencies {
 
     // Google Play In-App Review (네이티브 별점 리뷰 프롬프트)
     implementation("com.google.android.play:review-ktx:2.0.2")
+
+    // Google Play Billing (인앱결제 — 구독)
+    implementation("com.android.billingclient:billing-ktx:7.1.1")
 
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)

@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 디버그 빌드 전용 오버레이. 로컬 개발서버(http://localhost:3200, adb reverse)를
+     WebView 로 로드하려면 cleartext(HTTP) 허용이 필요하다. 릴리즈 빌드에는 병합되지 않음. -->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+
+    <application
+        android:usesCleartextTraffic="true"
+        tools:ignore="AllowBackup" />
+
+</manifest>

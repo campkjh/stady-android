@@ -79,9 +79,22 @@ class MainActivity : ComponentActivity() {
                 this@MainActivity.requestInAppReview()
             }
         }
+
+        // 웹(useIap)에서 window.Android.iapPurchase(JSON) 호출 → Play Billing 구독 결제.
+        @JavascriptInterface
+        fun iapPurchase(json: String) {
+            runOnUiThread { this@MainActivity.startIapPurchase(json) }
+        }
+
+        // 웹(useIap)에서 window.Android.iapRestore() 호출 → 기존 구독 복원.
+        @JavascriptInterface
+        fun iapRestore() {
+            runOnUiThread { this@MainActivity.billingManager.restore() }
+        }
     }
 
     private var webViewInstance: WebView? = null
+    private lateinit var billingManager: BillingManager
     private var showLoginDialog by mutableStateOf(false)
 
     // WebView <input type="file"> 처리용 콜백 + 파일 선택 런처.
@@ -150,6 +163,16 @@ class MainActivity : ComponentActivity() {
 
         // 런타임 진단 로그 (서명/버전/Kakao 앱키)
         printDiagnostics()
+
+        // 인앱결제(Play Billing) 매니저 — 결과 JSON 을 웹의 __STADY_IAP__.onResult 로 전달.
+        billingManager = BillingManager(this) { resultJson ->
+            runOnUiThread {
+                webViewInstance?.evaluateJavascript(
+                    "window.__STADY_IAP__ && window.__STADY_IAP__.onResult($resultJson);",
+                    null
+                )
+            }
+        }
 
         // 시스템 바 흰색 설정
         window.statusBarColor = android.graphics.Color.WHITE
@@ -251,6 +274,27 @@ class MainActivity : ComponentActivity() {
 
     fun setWebView(webView: WebView) {
         this.webViewInstance = webView
+    }
+
+    // 웹에서 넘어온 {planId, productId} 로 구독 결제를 시작한다.
+    private fun startIapPurchase(json: String) {
+        try {
+            val obj = org.json.JSONObject(json)
+            val planId = obj.optString("planId")
+            val productId = obj.optString("productId")
+            if (productId.isBlank()) {
+                Toast.makeText(this, "상품 정보가 없어요.", Toast.LENGTH_SHORT).show()
+                return
+            }
+            billingManager.purchase(this, planId, productId)
+        } catch (e: Exception) {
+            Log.e("StadyIAP", "iapPurchase 파싱 실패: $json", e)
+        }
+    }
+
+    override fun onDestroy() {
+        if (::billingManager.isInitialized) billingManager.endConnection()
+        super.onDestroy()
     }
 
     private fun printDiagnostics() {
@@ -438,7 +482,9 @@ fun WebViewWithLoading(
                     // 변경이 안 보이는 원인). 매 실행마다 비워 최신 배포를 받게 한다.
                     clearCache(true)
 
-                    loadUrl("https://stady.kr")
+                    // 디버그 빌드는 로컬 개발서버(adb reverse tcp:3200)를 로드해 아직
+                    // 배포 전인 웹 변경(인앱결제 등)을 실기기에서 확인한다. 릴리즈는 stady.kr.
+                    loadUrl(if (BuildConfig.DEBUG) "http://localhost:3200/mypage" else "https://stady.kr")
                 }.also { webView = it }
             },
             update = { view ->
