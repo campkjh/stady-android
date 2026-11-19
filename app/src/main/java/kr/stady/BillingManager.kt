@@ -84,7 +84,9 @@ class BillingManager(
             val params = QueryProductDetailsParams.newBuilder()
                 .setProductList(listOf(product))
                 .build()
-            billingClient.queryProductDetailsAsync(params) { result, productDetailsList ->
+            billingClient.queryProductDetailsAsync(params) { result, queryResult ->
+                // PBL 8: 콜백이 QueryProductDetailsResult를 반환
+                val productDetailsList = queryResult.productDetailsList
                 if (result.responseCode != BillingClient.BillingResponseCode.OK || productDetailsList.isEmpty()) {
                     deliver(false, productId = productId,
                         error = "상품 정보를 불러오지 못했어요. (Play Console 등록 확인)")
